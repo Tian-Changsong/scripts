@@ -4,8 +4,12 @@ set pppr(hunit) 5.6
 set pppr(vunit) 6.3
 set pppr(site,std) sc7mcpp140z_cln28ht
 set pppr(site,psw) sc7mcpp140z_cln28ht_pg
-set pppr(psw,core) HEADBUFBIAS41_X3M_A7PP140ZTH_C40
-set pppr(psw,channel) HEADBUFBIAS41_X3M_A7PP140ZTH_C40
+#set pppr(psw,core) HEADBUFBIAS41_X3M_A7PP140ZTH_C40
+set pppr(psw,core) HEADBUFTIE41_X3M_A7PP140ZTH_C40
+#set pppr(psw,core) HEADBUF29_X2M_A7PP140ZTH_C40
+#set pppr(psw,channel) HEADBUFBIAS41_X3M_A7PP140ZTH_C40
+set pppr(psw,channel) HEADBUFTIE41_X3M_A7PP140ZTH_C40
+#set pppr(psw,channel) HEADBUF29_X2M_A7PP140ZTH_C40
 set pppr(psw,channel_threshold) 40
 set pppr(psw,skip_row_channel) 17 ;# 8 | 17 | 35
 set pppr(psw,skip_row_core) 17 ;# 8 | 17 | 35
@@ -14,10 +18,15 @@ set pppr(psw,horizontal_pitch_core) [expr {$pppr(hunit)*18}]
 set pppr(cell_width,psw_core) [dbGet [dbGet head.libCells.name $pppr(psw,core) -p].size_x]
 set pppr(cell_width,psw_channel) [dbGet [dbGet head.libCells.name $pppr(psw,channel) -p].size_x]
 
-set pppr(cell,welltap) FILLTIE5_A7PP140ZTH_C40 
-set pppr(cell,endcap) ENDCAPTIE3_A7PP140ZTH_C40
+set pppr(cell,welltap)  FILLBIASNW5_A7PP140ZTH_C40
+#set pppr(cell,endcap)   ENDCAPTIE3_A7PP140ZTH_C40
+set pppr(cell,endcap_LR)   ENDCAPBIASNW3_A7PP140ZTH_C40
+set pppr(cell,endcap_TB)   [list FILLBIASNW5_A7PP140ZTH_C40 FILL2_A7PP140ZTH_C40 FILL3_A7PP140ZTH_C40]
+set pppr(cell,endcap_RT_EDGE)    FILL3_A7PP140ZTH_C40
+set pppr(cell,endcap_RB_EDGE)    FILL3_A7PP140ZTH_C40
+set pppr(cell,decap)    FILLCAP4_A7PP140ZTH_C40
 set pppr(cell_width,welltap) [dbGet [dbGet head.libCells.name $pppr(cell,welltap) -p].size_x]
-set pppr(cell_width,endcap) [dbGet [dbGet head.libCells.name $pppr(cell,endcap) -p].size_x]
+set pppr(cell_width,endcap_LR) [dbGet [dbGet head.libCells.name $pppr(cell,endcap_LR) -p].size_x]
 set pppr(power,aon) VDD
 set pppr(power,sw) ""
 set pppr(gnd) VSS
