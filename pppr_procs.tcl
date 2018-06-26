@@ -192,12 +192,12 @@ proc P_add_pg_stripe {args} {
                 if {$width < 1.25} {
                     puts "Error: Found narrow channel with width $width at $box, no stripes will be inserted, please check !"
                 } elseif {$width > 1.25} {
-                    dbCreateWire $power_net [expr {$box_stripe_llx+0.25*2}] $box_stripe_lly [expr {$box_stripe_llx+0.25*3}] $box_stripe_ury 5 1 STRIPE
-                    dbCreateWire $gnd_net [expr {$box_stripe_llx+0.25*4}] $box_stripe_lly [expr {$box_stripe_llx+0.25*5}] $box_stripe_ury 5 1 STRIPE
+                    dbCreateWire $power_net [expr {$box_stripe_llx+0.25*2}] $box_stripe_lly [expr {$box_stripe_llx+0.25*3}] $box_stripe_ury 5 1 NOTYPE
+                    dbCreateWire $gnd_net [expr {$box_stripe_llx+0.25*4}] $box_stripe_lly [expr {$box_stripe_llx+0.25*5}] $box_stripe_ury 5 1 NOTYPE
                 }
                 if {$width > 2.25} {
-                    dbCreateWire $power_net [expr {$box_stripe_urx-0.25*4}] $box_stripe_lly [expr {$box_stripe_urx-0.25*3}] $box_stripe_ury 5 1 STRIPE
-                    dbCreateWire $gnd_net [expr {$box_stripe_urx-0.25*2}] $box_stripe_lly [expr {$box_stripe_urx-0.25*1}] $box_stripe_ury 5 1 STRIPE
+                    dbCreateWire $power_net [expr {$box_stripe_urx-0.25*4}] $box_stripe_lly [expr {$box_stripe_urx-0.25*3}] $box_stripe_ury 5 1 NOTYPE
+                    dbCreateWire $gnd_net [expr {$box_stripe_urx-0.25*2}] $box_stripe_lly [expr {$box_stripe_urx-0.25*1}] $box_stripe_ury 5 1 NOTYPE
                 }
                 editPowerVia -bottom_layer M5 -top_layer M6 -add_vias 1 -area $box_stripe
                 editPowerVia -bottom_layer M1 -top_layer M5 -add_vias 1 -area $box_stripe
@@ -221,7 +221,7 @@ proc P_delete_powerswitch {} {
 proc P_get_first_pg {args} {
     parse_proc_arguments -args $args results
     set swires_in_area [dbQuery -area $results(-area) -objType sWire]
-    set swires [dbget [dbget $swires_in_area.net.name $results(-net) -p2].layer.name $results(-layer) -p2]
+    set swires [dbget [dbget [dbget $swires_in_area.net.name $results(-net) -p2].layer.name $results(-layer) -p2].shape stripe -p]
     #set box_list [dbget [dbget [dbget top.physNets.name $results(-net) -p].sWires.layer.name $results(-layer) -p2].box]
     set first_value ""
     set swire_found ""
@@ -387,8 +387,13 @@ proc P_insert_power_switch {args} {
             set width [format "%.3f" [expr {$box_urx-$box_llx}]]
             set leftOffset [expr {$offset_adjust+$pppr(cell_width,endcap_LR)+$pppr(cell_width,welltap)}]
             set first_m6_aon [P_get_first_pg -area $box -layer M6 -direction bottom_to_top -net $pppr(power,aon)]
+            if {$first_m6_aon eq "NONE"} {
+                continue
+            }
+            
             scan [lindex [dbget $first_m6_aon.box] 0] {%f %f %f %f} m6_llx m6_lly m6_urx m6_ury
             set bottomOffset [expr {$m6_lly-$box_lly}]
+            puts "INFO:Current box is $box"
 
             if {$width > $width_thresold} {
                 addPowerSwitch \
@@ -460,10 +465,10 @@ proc P_insert_fp_cells {} {
         set first_m5_aon [P_get_first_pg -area $domain_box -layer M5 -direction left_to_right -net $pppr(power,aon)]
         scan [lindex [dbget $first_m5_aon.box] 0] {%f %f %f %f} m5_llx m5_lly m5_urx m5_ury
         set tap_offset [expr {$m5_llx+12.44-$domain_llx}]
-        addWellTap -cell $pppr(cell,welltap)  -cellInterval [expr {$pppr(hunit)*18}]  -prefix WELLTAP -checkerBoard -powerDomain $pd_name -inRowOffset $tap_offset
+        addWellTap -cell $pppr(cell,welltap)  -cellInterval [expr {$pppr(hunit)*13}]  -prefix WELLTAP -checkerBoard -powerDomain $pd_name -inRowOffset $tap_offset
         #verifyWellTap -cell $pppr(cell,welltap) -rule 29 -powerDomain PD_ALLON
         #addWellTap -cell PEH_TAPPN -cellInterval [expr 56 * 2] -prefix WELLTAP -checkerBoard -incremental PEH_TAPPN  -powerDomain PD_ALLON
-        addWellTap -cell $pppr(cell,decap)  -cellInterval [expr {$pppr(hunit)*18}]  -prefix DECAP -fixedGap -checkerBoard -powerDomain $pd_name -inRowOffset $tap_offset
+        addWellTap -cell $pppr(cell,decap)  -cellInterval [expr {$pppr(hunit)*13}]  -prefix DECAP -fixedGap -checkerBoard -powerDomain $pd_name -inRowOffset $tap_offset
     }
 }
 proc P_fmod {divident divisor} {
@@ -514,7 +519,7 @@ proc P_add_psw_power_stripe {args} {
 
 
         set track_skip(M3) 6
-        set track_skip(M4) 4
+        set track_skip(M4) 3
         set track_skip(M5) 6
         foreach layer [list M3 M4] {
             set stripe_box_list ""
@@ -530,8 +535,8 @@ proc P_add_psw_power_stripe {args} {
             
             if {$direction eq "Horizontal"} {
                 set pitch [dbget [dbget head.layers.name $layer -p].pitchY]
-                set start [format "%.3f" [expr {$psw_box_lly-[P_fmod $psw_box_lly $pitch]+0.1}]]
-                set stop $psw_box_ury
+                set start [format "%.3f" [expr {$psw_box_lly-[P_fmod $psw_box_lly $pitch]+0.2}]]
+                set stop [expr $psw_box_ury-0.2-$width/2]
                 for {set i $start} {$i <= $stop} {set i [format "%.3f" [expr {$i+$pitch*$track_skip($layer)}]]} {
                     lappend stripe_box_list [list [expr $psw_box_llx+0.2] [expr {$i-$width/2}] [expr $psw_box_urx-0.2] [expr {$i+$width/2}]]
                 }
@@ -593,6 +598,9 @@ proc P_add_psw_power_stripe {args} {
         set start [format "%.3f" [expr {$psw_box_llx -[P_fmod $psw_box_llx $pitch]+0.7}]]
         set stop [format "%.3f" [expr {$psw_box_urx -0.7}]]
         for {set i $start} {$i <= $stop} {set i [format "%.3f" [expr {$i+$pitch*$track_skip($layer)}]]} {
+            if {[dbGet -e [dbQuery -objType sWire -area [dbShape [list [expr $i-$width/2] $sw_lly [expr $i+$width/2] $sw_ury] SIZE 0.225]].layer.name M5] !=""} {
+                continue
+            }
             if {[P_fmod $index 2]==0} {
                 set sw_box [list [expr $i-$width/2] $sw_lly [expr $i+$width/2] $sw_ury]
                 dbCreateWire $sw_net {*}$sw_box 5 1 STRIPE
@@ -658,6 +666,9 @@ proc P_get_closest_stripe {args} {
     foreach stripe $stripes {
         set box [dbget $stripe.box]
         scan [lindex $box 0] {%f %f %f %f} stripe_llx stripe_lly stripe_urx stripe_ury
+        if {$stripe_llx > $llx || $stripe_urx < $llx} {
+            continue
+        }
         if {$direction eq "Horizontal"} {
             set distance [expr {abs($stripe_lly-$lly)}]
         } elseif {$direction eq "Vertical"} {
@@ -688,6 +699,12 @@ proc P_connect_psw_chain {args} {
     foreach pd [dbget top.pds.isAlwaysOn 0 -p] {
         set pd_name [dbget $pd.name]
         set psws [addPowerSwitch -getSwitchInstances  -powerDomain $pd_name]
+        switch -exact -- $pd_name {
+            PD_CODEC { set enable_net psw_en_codec }
+            PD_MCU { set enable_net psw_en_mcu }
+            PD_BT { set enable_net psw_en_bt }
+        }
+        
         rechainPowerSwitch \
             -unchainByInstances \
             -switchInstances $psws \
@@ -695,16 +712,118 @@ proc P_connect_psw_chain {args} {
             -enablePinOut SLEEPOUT
         rechainPowerSwitch \
             -powerDomain $pd_name \
-            -enablePinIn EN \
-            -enablePinOut ENX \
-            -enableNetIn psw_en_codec \
-            -enableNetOut psw_en_codec_ack \
+            -enableNetIn  $enable_net \
             -switchInstances $psws \
             -backToBackChain \
             -chainByInstances  \
+            -enablePinIn SLEEP \
+            -enablePinOut SLEEPOUT \
             -chainDirectionX RtoL \
             -chainDirectionY TtoB  \
             -mergeDistanceX 26 
     }
 }
+
+proc P_insert_eco_array {args} {
+    parse_proc_arguments -args $args results
+    global pppr
+    set pitch $results(-pitch)
+    set pitch_x [format "%.3f" [expr {ceil($pitch/0.14)*0.14}]]
+    set pitch_y [format "%.3f" [expr {ceil($pitch/0.7)*0.7}]]
+    if {$pitch == 50} {
+        set pitch_x 50.4
+    }
+    set eco_comb_width [dbGet [dbGet head.libCells.name $pppr(cell,eco_comb) -p].size_x]
+    set eco_dff_width [dbGet [dbGet head.libCells.name $pppr(cell,eco_dff) -p].size_x]
+    foreach power_domain [dbget top.pds.name] {
+        set channel_boxes [P_get_channel_area -power_domain $power_domain -width $pppr(psw,channel_threshold)]
+        foreach box $channel_boxes {
+            createPlaceBlockage -type hard -box $box -name eco_array_tmp_pb
+        }
+        set domain_box [lindex [dbShape [dbget [dbget top.pds.name $power_domain -p].group.boxes] BBOX] 0]
+        scan $domain_box {%f %f %f %f} domain_llx domain_lly domain_urx domain_ury
+        set first_m5_aon [P_get_first_pg -area $domain_box -layer M5 -direction left_to_right -net $pppr(power,aon)]
+        scan [lindex [dbget $first_m5_aon.box] 0] {%f %f %f %f} m5_llx m5_lly m5_urx m5_ury
+        set tap_offset [expr {$m5_llx+12.44+1.4-$domain_llx}]
+
+        set skip_row [expr {int($pitch_y/0.7-1)}]
+        set start_row 10
+        for {set i 0} {$i < 3} {incr i} {
+            for {set j 0} {$j < 4} {incr j} {
+                if {$i==2 && $j<2} {
+                    addWellTap -cell $pppr(cell,eco_comb)  -cellInterval $pitch_x -skipRow $skip_row -prefix FILLECO_COMB -fixedGap -inRowOffset [expr $tap_offset+$j*(0.84+$eco_comb_width)]  -startRowNum [expr $start_row+$i] -powerDomain $power_domain
+                } elseif {$i==2 && $j==2} {
+                    addWellTap -cell $pppr(cell,eco_dff)  -cellInterval $pitch_x -skipRow $skip_row -prefix FILLECO_DFF -fixedGap -inRowOffset [expr $tap_offset+$j*(0.84+$eco_comb_width)]  -startRowNum [expr $start_row+$i] -powerDomain $power_domain
+                } elseif {$i<2} {
+                    addWellTap -cell $pppr(cell,eco_comb)  -cellInterval $pitch_x -skipRow $skip_row -prefix FILLECO_COMB -fixedGap -inRowOffset [expr $tap_offset+$j*(0.84+$eco_comb_width)]  -startRowNum [expr $start_row+$i] -powerDomain $power_domain
+                }
+            }
+        }
+    }
+    deletePlaceBlockage eco_array_tmp_pb
+}
+define_proc_arguments P_insert_eco_array -info "insert eco cells" \
+    -define_args {
+        {-pitch "cell pitch" pitch float required}
+    }
+
+proc P_add_macro_stripe {args} {
+    parse_proc_arguments -args $args results
+    global pppr
+    dbForEachCellInst [dbgTopCell] instPtr {
+        if {[dbIsInstHaloBlock  $instPtr]} {
+            if {[llength [lindex [dbGet $instPtr.boxes] 0]] > 1 } {continue}
+            set instBox [dbGet $instPtr.box]
+            editPowerVia -bottom_layer M4 -delete_vias 1 -area [string trim $instBox {{ }}] -top_layer M6
+            editPowerVia -bottom_layer M4 -add_vias 1 -area [string trim $instBox {{ }}] -top_layer M5
+            editPowerVia -bottom_layer M5 -add_vias 1 -area [string trim $instBox {{ }}] -top_layer M6
+            set swirePtr [dbGet [dbGet [dbQuery -area [dbGet $instPtr.box] -objType swire].layer.name M5 -p2].width $pppr(width,M5) -p -e]
+            if { [llength $swirePtr] != 0 } {
+                foreach each_net_name [lsort -u [dbGet $swirePtr.net.name ]] {
+                    set wNum($each_net_name) 0
+                }
+                foreach wire $swirePtr {
+                    set netName [dbGet $wire.net.name]
+                    if {$netName ne [dbGet $instPtr.pd.primaryPowerNet.name] && $netName ne [dbGet $instPtr.pd.primaryGroundNet.name]} {
+                        continue
+                    }
+
+                    set box [dbGet $wire.box]
+                    set oBox [lindex [dbShape [dbShape $box SIZEX 0.085] AND $instBox] 0]
+                    set rBox [dbShape [dbShape $oBox MOVE "[expr $pppr(pitch,M5)/4] 0"] AND $instBox]
+                    set lBox [dbShape [dbShape $oBox MOVE "[expr 0 - ($pppr(pitch,M5) * 3)/4] 0"] AND $instBox]
+                    if {[llength $rBox] == 0 && [llength $lBox] == 0} {
+                        set mBox  [list]
+                    } elseif {[llength $rBox] == 0} {
+                        set mBox $lBox
+                    } elseif {[llength $lBox] == 0} {
+                        set mBox $rBox
+                    } else {
+                        set mBox [dbShape $rBox OR $lBox]
+                    }
+                    if { $wNum($netName) == 0 } {
+                        set netGroup($netName) [dbShape $mBox OR $oBox]
+                        set wNum($netName) 1
+                    } else {
+                        lappend netGroup($netName) [dbShape $mBox OR $oBox]
+                    }
+                }
+            }
+            foreach net [array names netGroup] {
+                foreach bb [dbShape $netGroup($net) -output rect] {
+                    set wireWidth [expr [lindex $bb 2] - [lindex $bb 0]]
+                    if {$wireWidth >= $pppr(width,M5)} {
+                        dbCreateWire $net [lindex $bb 0] [lindex $bb 1] [lindex $bb 2] [lindex $bb 3] 5 1 STRIPE
+                    }
+                }
+            }
+            ## 
+            editPowerVia -bottom_layer M4 -delete_vias 1 -area [string trim $instBox {{ }}] -top_layer M5
+            editPowerVia -bottom_layer M4 -add_vias 1 -area [string trim $instBox {{ }}] -top_layer M5
+            editPowerVia -bottom_layer M5 -add_vias 1 -area [string trim $instBox {{ }}] -top_layer M6
+
+        }
+    }
+}
+
 
